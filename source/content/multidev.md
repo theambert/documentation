@@ -14,12 +14,6 @@ Optimize your dev team and streamline internal workflows. Pantheon delivers cust
 
 </Enablement>
 
-<Alert title="Note" type="info" >
-
-To support the large number of web teams whose day-to-day operations are disrupted by the COVID-19 pandemic, we are making Multidev available for no additional charge to all customers through September 1, 2020. See the [blog post for more information](https://pantheon.io/blog/why-were-making-multidev-free-through-july-1st) (note: this offer has been extended since the post was published).
-
-</Alert>
-
 ## Benefits of Multidev
 
 **Easy workflow.** Developers on your team can use a standardized best-practice development workflow in the cloud through their Dashboard.
