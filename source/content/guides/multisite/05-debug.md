@@ -40,7 +40,7 @@ Use `wp super-admin list` to list current super admins, and `wp super-admin add`
 
 ### Error: Cookies are blocked or not supported by your browser
 
-See the eponymous section in [Basic Troubleshooting](/basic-troubleshooting#error-cookies-are-blocked-or-not-supported-by-your-browser) for more information.
+See the related section in [Basic Troubleshooting](/basic-troubleshooting#error-cookies-are-blocked-or-not-supported-by-your-browser) for more information.
 
 ### Error: "Error establishing a database connection"
 
