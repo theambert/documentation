@@ -9,41 +9,28 @@ import 'react-date-range/dist/styles.css'; // main style file
 import 'react-date-range/dist/theme/default.css'; // theme css file
 import { DateRange } from 'react-date-range';
 
-const converter = new showdown.Converter()
+const converter = new showdown.Converter() //Used to render the content of Pull Request bodies as HTML
+const octokit = new Octokit({auth: process.env.GITHUB_TOKEN}); // Authenticated API access
+const thisDate = new Date() // Reference to today
+const twoWeeksAgo = new Date() // Reference to two weeks ago from today
+twoWeeksAgo.setDate(thisDate.getDate() - 14)
+const summRegex = /(?<=Summary\s*)[\s\S]*?(?=\s*##)/g // The regex used to pull Summaries from PR bodies.
 
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN
-});
-
-async function getWeeklyClosedPRBodies() {
-  let response;
-  try {
-    response = await octokit.pulls.list({
-      owner: "pantheon-systems",
-      repo: "documentation",
-      base: "main",
-      state: "closed",
-      sort: "updated",
-      per_page: "50",
-      page: "0",
-      direction: "desc",
-    })
-  } catch (err) {
-    console.log(err)
-  }
-  return response.data
-}
-
-async function getAllPulls() {
-  const allPulls = await getWeeklyClosedPRBodies()
-  //console.log("allPulls in Function", allPulls)
-}
-
-
+//START main functional component that generates the page
 const StatusReport = () => {
 
-  const [data, setData] = useState([]);
+  //Our initial date range
+  const [dateRange, setDateRange] = useState([
+      {
+        startDate: twoWeeksAgo,
+        endDate: thisDate,
+        key: 'selection'
+      }
+    ]) 
 
+  
+  //Pull requests Data construction
+  const [data, setData] = useState([])
   useEffect(() => {
     const fetchData = async () => {
       const response = await octokit.pulls.list({
@@ -58,46 +45,78 @@ const StatusReport = () => {
       //console.log('response :: ', response) //For Debugging
       setData(response.data)
     };
-    fetchData();
-    
+    fetchData()
   }, [])
 
-  var weekday = new Array(7);
-  weekday[0] = "Sunday";
-  weekday[1] = "Monday";
-  weekday[2] = "Tuesday";
-  weekday[3] = "Wednesday";
-  weekday[4] = "Thursday";
-  weekday[5] = "Friday";
-  weekday[6] = "Saturday";
+  
 
-  var thisDate = new Date()
+  // Constructs a unique array of labels found amongst the GitHub data
+  const labelDump = []
+  data.map(item => {
+    item.labels.map(label => {
+      labelDump.push(label.name)
+    })
+  })
+  //console.log("labels array: ", labels) //For Debugging
+  const uniqueLabels = new Set(labelDump)
+  const labels = [...uniqueLabels]
 
-  var renderDate = weekday[thisDate.getDay()] + ", " + (thisDate.getMonth()+1) + "/" + thisDate.getDate() + "/" + thisDate.getFullYear()
+  // Construct checkboxes to filter on labels.
+  const [allChecked, setAllChecked] = useState(false)
+  const [isChecked, setIsChecked] = useState([null
+    /*labels.map(label => {
+      return (
+        {'label' : label},
+        {isChecked : false}
+      )
+    })*/
+  ])
+  
+  const [loading, setLoading] = useState(true)
 
-  var twoWeeksAgo = new Date()
-  twoWeeksAgo.setDate(thisDate.getDate() - 14)
-  var renderTwoWeeksAgo = weekday[twoWeeksAgo.getDay()] + ", " + (twoWeeksAgo.getMonth()+1) + "/" + twoWeeksAgo.getDate() + "/" + twoWeeksAgo.getFullYear()
+  const handleAllCheck = (e) => {
+    setAllChecked(e.target.checked)
+  }
+  const handleSingleCheck = e => {
+    let index
+    if (e.target.checked) {
+      setIsChecked(  isChecked.length ? [ ...isChecked, e.target.name] : [e.target.name]  )
+      console.log(isChecked)
+    }
+    else {
+      index = isChecked.indexOf(e.target.value)
+      isChecked.splice(index, 1)
+      console.log(isChecked)
+    }
+  };
 
-  const [dateRange, setDateRange] = useState([
-      {
-        startDate: twoWeeksAgo,
-        endDate: thisDate,
-        key: 'selection'
-      }
-    ]);
-    //console.log("Initial dateRange: ", dateRange[0])
+  useEffect(() => {
+    if (!loading) {
+    setIsChecked(current => {
+      const nextIsChecked = {}
+      Object.keys(current).forEach(key => {
+        nextIsChecked[key] = allChecked;
+      })
+      return nextIsChecked;
+    });
+    }
+  }, [allChecked, loading]);
 
-  const summRegex = /(?<=Summary\s*)[\s\S]*?(?=\s*##)/g
-  //console.log("summRegex: ", summRegex)
+  useEffect(() => {
+    const initialIsChecked = data.reduce((acc,d) => {
+      acc[d.name] = false;
+      return acc;
+    }, {})
+    setIsChecked(initialIsChecked)
+    setLoading(false)
+  }, [loading])
 
   return (
     <>
     <Layout>
-    <div>
-      <h1>Recently Merged PRs</h1>
-      <h2> Today is {renderDate.toString()} </h2>
-      <h3> Two weeks ago was {renderTwoWeeksAgo.toString()}</h3>
+    <main id="report">
+    <div className="container doc-content-well">
+      <h2> Recently Merged PRs </h2>
       <div>
       <center>
         <DateRange
@@ -110,8 +129,34 @@ const StatusReport = () => {
         />
         </center>
       </div>
+      <div>
+        <form>
+          <label>
+          <input
+            name="checkall"
+            type="checkbox"
+            checked={allChecked}
+            onChange={handleAllCheck}
+          />
+          All &nbsp;
+          </label>
+        {labels.map((name, i) => {
+          return (
+            <label>
+              <input
+                name={name}
+                type="checkbox"
+                value={name.toString()}
+                onChange={handleSingleCheck}
+              />
+              {name} &nbsp;
+            </label>
+          )
+        })}
+        </form>
+      </div>
       <hr />
-      <div id="summaries" style={{paddingLeft: "3em"}}>
+      <section id="summaries" className="doc article col-md-9 md-70">
 
         {data.filter(item => {
           var mergeDate = new Date(item.merged_at)
@@ -121,7 +166,14 @@ const StatusReport = () => {
             dateRange[0].startDate < mergeDate &&
             dateRange[0].endDate >= mergeDate
           )
-        }).map((item) => {
+        }).filter(item => {
+          return (item.labels && isChecked.length > -1
+            ? item.labels.filter(
+                label => label.name.indexOf(isChecked) > -1
+              ).length
+            : item
+          )})
+        .map((item) => {
           //var date = new Date(item.closed_at)
           var mergeDate = new Date(item.merged_at)
           var summary = summRegex.exec(item.body)
@@ -148,9 +200,9 @@ const StatusReport = () => {
             </>
           )
         })}
-        </div>
-
+        </section>
     </div>
+    </main>
     </Layout>
     </>
   );
